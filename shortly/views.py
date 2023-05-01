@@ -1,12 +1,19 @@
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound, HttpRequest, JsonResponse
+from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 import secrets
 from shortly.models import ShortUrl
 from django.core.validators import URLValidator, ValidationError
+from django.views import View
 
-@csrf_exempt
-def index(request: HttpRequest):
-    if request.method == 'POST':
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ShortlyView(View):
+
+    def http_method_not_allowed(self, request, *args, **kwargs):
+        return HttpResponseBadRequest('This view only accepts POST requests.')
+
+    def post(self, request, *args, **kwargs):
         forward_url = request.body.decode()
         try:
             URLValidator()(forward_url)
@@ -21,8 +28,7 @@ def index(request: HttpRequest):
             "hash": short_hash
         }
         return JsonResponse(body)
-    else:
-        return HttpResponseBadRequest('This view only accepts POST requests.')
+
 
 @csrf_exempt
 def resolve(request: HttpRequest, slug: str):
