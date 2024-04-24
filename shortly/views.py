@@ -5,6 +5,7 @@ import secrets
 from shortly.models import ShortUrl
 from django.core.validators import URLValidator, ValidationError
 from django.views import View
+from django.template import loader
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -12,6 +13,11 @@ class ShortlyView(View):
 
     def http_method_not_allowed(self, request, *args, **kwargs):
         return HttpResponseBadRequest('This view only accepts POST requests.')
+
+    def get(self, request):
+        template = loader.get_template('shortly/index.html')
+        context = {}
+        return HttpResponse(template.render(context, request))
 
     def post(self, request, *args, **kwargs):
         forward_url = request.body.decode()
