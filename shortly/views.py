@@ -1,11 +1,12 @@
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound, HttpRequest, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-import secrets
-from shortly.models import ShortUrl
 from django.core.validators import URLValidator, ValidationError
 from django.views import View
 from django.template import loader
+
+from shortly import service
+from shortly.models import ShortUrl
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -26,9 +27,7 @@ class ShortlyView(View):
         except ValidationError as e:
             return HttpResponseBadRequest(e.message)
 
-        short_hash = secrets.token_urlsafe(8)
-        short_url = ShortUrl(hash=short_hash, forward_url=forward_url)
-        short_url.save()
+        short_hash = service.shorten_url(forward_url)
 
         body = {
             "hash": short_hash
@@ -36,14 +35,13 @@ class ShortlyView(View):
         return JsonResponse(body)
 
 
+
 @csrf_exempt
 def resolve(request: HttpRequest, slug: str):
-    try:
-        short_urls = ShortUrl.objects.filter(hash=slug)
-        if len(short_urls) < 1:
-            raise ShortUrl.DoesNotExist
+    forward_url = service.resolve_hash(slug)
+    if forward_url is not None:
         response = HttpResponse(content="", status=303)
-        response["Location"] = short_urls[0].forward_url
+        response["Location"] = forward_url
         return response
-    except ShortUrl.DoesNotExist:
-        return HttpResponseNotFound(f"Could not find slug : {slug}")
+    else:
+        raise ShortUrl.DoesNotExist
